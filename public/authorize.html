@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect Motif</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #050505;
+      color: #ffffff;
+      background-image: radial-gradient(circle at 50% 0%, #1a1a1a 0%, #050505 70%);
+      min-height: 100vh;
+    }
+    .glass-card {
+      background: rgba(20, 20, 20, 0.6);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    .btn-primary {
+      background-color: #39FF14;
+      color: #000000;
+      transition: all 0.2s ease;
+    }
+    .btn-primary:hover {
+      background-color: #32e011;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(57, 255, 20, 0.3);
+    }
+    .motif-logo {
+      font-weight: 800;
+      font-size: 2.5rem;
+      letter-spacing: -1px;
+      font-style: italic;
+    }
+    .motif-m {
+      color: #39FF14;
+    }
+  </style>
+</head>
+<body class="flex items-center justify-center p-4">
+  <div class="glass-card max-w-md w-full p-8 rounded-3xl relative overflow-hidden">
+    <!-- Decorative glow -->
+    <div class="absolute -top-20 -right-20 w-40 h-40 bg-[#39FF14] rounded-full mix-blend-screen filter blur-[80px] opacity-20"></div>
+    
+    <div class="text-center mb-10 relative z-10">
+      <div class="motif-logo mb-2"><span class="motif-m">M</span>OTIF</div>
+      <p class="text-gray-400 text-sm font-light">The personal entertainment intelligence layer.</p>
+    </div>
+    
+    <div class="space-y-6 relative z-10">
+      <div class="bg-black/40 rounded-xl p-5 border border-white/5">
+        <h3 class="text-sm font-semibold mb-2 flex items-center text-gray-200">
+          <svg class="w-4 h-4 mr-2 text-[#39FF14]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          Connect to ChatGPT
+        </h3>
+        <p class="text-xs text-gray-400 leading-relaxed">
+          Motif will learn your taste across movies, shows, anime, games, and music to create a unified <b>Taste Graph</b>. You control your data.
+        </p>
+      </div>
+
+      <button id="loginBtn" class="btn-primary w-full py-3.5 rounded-xl font-semibold text-sm flex justify-center items-center">
+        <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Sign in with Google
+      </button>
+
+      <div class="text-center">
+        <p class="text-[10px] text-gray-500 mt-4">By connecting, you agree to Motif's Privacy Policy. We never read your private messages or infer sensitive attributes.</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+
+    // Will be auto-injected by AI Studio Firebase Skill
+    const firebaseConfig = {
+      apiKey: "AIzaSyAa_sn28F6iMOIej17qVLrnP87_McebFHs",
+      authDomain: "lifeskillzs.firebaseapp.com",
+      projectId: "lifeskillzs",
+      storageBucket: "lifeskillzs.firebasestorage.app",
+      messagingSenderId: "636631359646",
+      appId: "1:636631359646:web:3ad231ad903ee4f8385b8f"
+    };
+
+    let app, auth;
+    try {
+      app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+    } catch (e) {
+      console.error("Firebase config missing or invalid", e);
+    }
+
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      try {
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        const uid = result.user.uid;
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectUri = urlParams.get('redirect_uri');
+        const state = urlParams.get('state');
+
+        if (redirectUri && state) {
+          window.location.href = \`\${redirectUri}?code=\${uid}&state=\${state}\`;
+        } else {
+          document.body.innerHTML = \`<div class="flex flex-col items-center justify-center h-screen text-center"><div class="w-16 h-16 bg-[#39FF14] rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(57,255,20,0.4)]"><svg class="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg></div><h2 class="text-2xl font-bold mb-2">Connected to Motif</h2><p class="text-gray-400">You can close this window and return to ChatGPT.</p></div>\`;
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Login failed: " + error.message);
+      }
+    });
+  </script>
+</body>
+</html>

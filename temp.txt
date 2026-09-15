@@ -1,0 +1,146 @@
+
+app.get('/.well-known/oauth-authorization-server', (req, res) => {
+  const host = req.headers['x-forwarded-host'] || req.get('host');
+  const serverUrl = `https://${host}`;
+  res.json({
+    issuer: serverUrl,
+    authorization_endpoint: `${serverUrl}/authorize`,
+    token_endpoint: `${serverUrl}/token`,
+    response_types_supported: ["code"],
+    grant_types_supported: ["authorization_code", "refresh_token"],
+    token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic", "none"],
+    code_challenge_methods_supported: ["S256"]
+  });
+});
+
+app.get('/authorize', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'authorize.html'));
+});
+
+let spreadsheetId: string | null = null;
+
+async function getAuth() {
+  const credsStr = process.env.GOOGLE_SHEETS_CREDS;
+  if (!credsStr) {
+    throw new Error('Database not connected. Add GOOGLE_SHEETS_CREDS to secrets');
+  }
+  let creds;
+  try {
+    creds = JSON.parse(credsStr);
+  } catch (e) {
+    throw new Error('GOOGLE_SHEETS_CREDS is not valid JSON');
+  }
+  return new google.auth.GoogleAuth({
+    credentials: creds,
+    scopes: [
+      'https://www.googleapis.com/auth/spreadsheets',
+      'https://www.googleapis.com/auth/drive'
+    ]
+  });
+}
+
+async function getSpreadsheetId(auth: any) {
+  if (spreadsheetId) return spreadsheetId;
+  const drive = google.drive({ version: 'v3', auth });
+  const res = await drive.files.list({
+    q: "name='LifeLogistics_Profiles' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
+    fields: 'files(id, name)'
+  });
+  if (res.data.files && res.data.files.length > 0) {
+    spreadsheetId = res.data.files[0].id!;
+    return spreadsheetId;
+  }
+  
+  const sheets = google.sheets({ version: 'v4', auth });
+  const createRes = await sheets.spreadsheets.create({
+    requestBody: {
+      properties: { title: 'LifeLogistics_Profiles' }
+    }
+  });
+  spreadsheetId = createRes.data.spreadsheetId!;
+  
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: 'Sheet1!A1:C1',
+    valueInputOption: 'USER_ENTERED',
+    requestBody: {
+      values: [['User_ID', 'Profile_Data', 'Last_Updated']]
+    }
+  });
+  
+  return spreadsheetId;
+}
+
+async function getProfile(userId: string): Promise<{ profile: any, rowIdx: number | null }> {
+  try {
+    const auth = await getAuth();
+    const id = await getSpreadsheetId(auth);
+    const sheets = google.sheets({ version: 'v4', auth });
+    
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: id,
+      range: 'Sheet1!A:C'
+    });
+    
+    const rows = res.data.values;
+    if (rows && rows.length > 1) {
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (row[0] === String(userId)) {
+          return { profile: JSON.parse(row[1] || '{}'), rowIdx: i + 1 };
+        }
+      }
+    }
+  } catch (e: any) {
+    if (e.message.includes('Database not connected')) throw e;
+  }
+  
+  const defaultProfile = {
+    basics: { created: new Date().toISOString().split('T')[0], household_size: 1, budget_style: 'Standard' },
+    devices: [],
+    subscriptions: [],
+    renewals: [],
+    maintenance: [],
+    financial: { insurance: [], phone_plan: { cost: 0.0, provider: '' }, internet: { cost: 0.0, provider: '' } },
+    preferences: { brand_loyalties: [], budget_style: 'Standard', dislikes: [] },
+    flags: []
+  };
+  return { profile: defaultProfile, rowIdx: null };
+}
+
+async function saveProfile(userId: string, profile: any, rowIdx: number | null) {
+  const auth = await getAuth();
+  const id = await getSpreadsheetId(auth);
+  const sheets = google.sheets({ version: 'v4', auth });
+  const lastUpdated = new Date().toISOString();
+  
+  if (rowIdx) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: id,
+      range: `Sheet1!B${rowIdx}:C${rowIdx}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[JSON.stringify(profile), lastUpdated]]
+      }
+    });
+  } else {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: id,
+      range: 'Sheet1!A:C',
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[String(userId), JSON.stringify(profile), lastUpdated]]
+      }
+    });
+  }
+}
+
+function daysUntil(dateString: string) {
+  if (!dateString) return 0;
+  try {
+    const target = new Date(dateString.substring(0, 10)).getTime();
+    const today = new Date(new Date().toISOString().substring(0, 10)).getTime();
+    return Math.round((target - today) / (1000 * 60 * 60 * 24));
+  } catch {
+    return 0;
+  }

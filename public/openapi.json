@@ -1,0 +1,59 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "LifeSkillzs",
+    "description": "LifeSkillzs helps users track and manage their life logistics, devices, subscriptions, warranties, and financial habits.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://ais-dev-3akommyg3xb4ncthbfdrt3-421408964935.us-east1.run.app",
+      "description": "LifeSkillzs Backend API"
+    }
+  ],
+  "paths": {
+    "/mcp": {
+      "post": {
+        "operationId": "call_tool",
+        "summary": "Call a LifeSkillzs Tool",
+        "description": "Execute a tool on the backend (e.g. tools/list, tools/call).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "description": "The method to call. E.g. 'tools/list' or 'tools/call'"
+                  },
+                  "params": {
+                    "type": "object",
+                    "description": "Parameters for tools/call method",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "description": "The name of the tool to execute"
+                      },
+                      "arguments": {
+                        "type": "object",
+                        "description": "The arguments for the tool"
+                      }
+                    }
+                  }
+                },
+                "required": ["method"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation"
+          }
+        }
+      }
+    }
+  }
+}
