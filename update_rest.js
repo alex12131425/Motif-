@@ -1,4 +1,6 @@
-import express from 'express';
+const fs = require('fs');
+
+let code = `import express from 'express';
 import cors from 'cors';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
@@ -14,7 +16,6 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // Required for ChatGPT OAuth Token POST
 app.use(express.static('public'));
 
 // --- FIREBASE SETUP ---
@@ -38,7 +39,7 @@ const defaultMotifProfile = {
   library: [], history: [], custom_lists: {}, connected_sources: [], explorer_score: 50
 };
 
-async function getProfile(userId: string) {
+async function getProfile(userId) {
   try {
     const userRef = doc(db, 'motif_users', userId);
     const snap = await getDoc(userRef);
@@ -47,7 +48,7 @@ async function getProfile(userId: string) {
   return JSON.parse(JSON.stringify(defaultMotifProfile));
 }
 
-async function saveProfile(userId: string, profile: any) {
+async function saveProfile(userId, profile) {
   try {
     const userRef = doc(db, 'motif_users', userId);
     await setDoc(userRef, { profile }, { merge: true });
@@ -55,18 +56,18 @@ async function saveProfile(userId: string, profile: any) {
 }
 
 // --- HELPER FETCH WRAPPER ---
-async function apiFetch(url: string, headers: any = {}) {
+async function apiFetch(url, headers = {}) {
   try {
     const res = await fetch(url, { headers });
-    if (!res.ok) return { error: `API returned ${res.status}` };
+    if (!res.ok) return { error: \`API returned \${res.status}\` };
     return await res.json();
-  } catch (e: any) {
+  } catch (e) {
     return { error: e.message };
   }
 }
 
 // --- AUTH MIDDLEWARE FOR CHATGPT ---
-const requireAuth = (req: any, res: any, next: any) => {
+const requireAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: "Missing or invalid Authorization header. Please login." });
@@ -78,11 +79,11 @@ const requireAuth = (req: any, res: any, next: any) => {
 // --- HTTP ENDPOINTS FOR CHATGPT (32 ACTIONS) ---
 
 // 1. CORE
-app.post('/api/get_motif_profile', requireAuth, async (req: any, res: any) => {
+app.post('/api/get_motif_profile', requireAuth, async (req, res) => {
   res.json(await getProfile(req.userId));
 });
 
-app.post('/api/update_taste_dna', requireAuth, async (req: any, res: any) => {
+app.post('/api/update_taste_dna', requireAuth, async (req, res) => {
   const { category, trait, score_adjustment } = req.body;
   if(!category || !trait || score_adjustment===undefined) return res.status(400).json({error: "Missing params"});
   const profile = await getProfile(req.userId);
@@ -94,7 +95,7 @@ app.post('/api/update_taste_dna', requireAuth, async (req: any, res: any) => {
   res.json({ status: "success", trait, score });
 });
 
-app.post('/api/set_context', requireAuth, async (req: any, res: any) => {
+app.post('/api/set_context', requireAuth, async (req, res) => {
   const profile = await getProfile(req.userId);
   if (req.body.energy) profile.context.energy = req.body.energy;
   if (req.body.setting) profile.context.setting = req.body.setting;
@@ -103,7 +104,7 @@ app.post('/api/set_context', requireAuth, async (req: any, res: any) => {
   res.json({ status: "success", context: profile.context });
 });
 
-app.post('/api/add_to_library', requireAuth, async (req: any, res: any) => {
+app.post('/api/add_to_library', requireAuth, async (req, res) => {
   const { title, type, status } = req.body;
   const profile = await getProfile(req.userId);
   const item = { id: Date.now().toString(), title, type, status, added_at: new Date().toISOString() };
@@ -112,159 +113,159 @@ app.post('/api/add_to_library', requireAuth, async (req: any, res: any) => {
   res.json({ status: "success", item });
 });
 
-app.post('/api/remove_from_library', requireAuth, async (req: any, res: any) => {
+app.post('/api/remove_from_library', requireAuth, async (req, res) => {
   const profile = await getProfile(req.userId);
   const initialLen = profile.library.length;
-  profile.library = profile.library.filter((i: any) => i.title.toLowerCase() !== req.body.title.toLowerCase());
+  profile.library = profile.library.filter(i => i.title.toLowerCase() !== req.body.title.toLowerCase());
   await saveProfile(req.userId, profile);
   res.json({ status: "success", removed: initialLen > profile.library.length });
 });
 
-app.post('/api/log_interaction', requireAuth, async (req: any, res: any) => {
+app.post('/api/log_interaction', requireAuth, async (req, res) => {
   const profile = await getProfile(req.userId);
   profile.history.push({ title: req.body.title, interaction: req.body.interaction, timestamp: new Date().toISOString() });
   await saveProfile(req.userId, profile);
   res.json({ status: "success", logged: req.body.title });
 });
 
-app.post('/api/clear_user_data', requireAuth, async (req: any, res: any) => {
+app.post('/api/clear_user_data', requireAuth, async (req, res) => {
   await deleteDoc(doc(db, 'motif_users', req.userId));
   res.json({ status: "success", message: "All user data deleted securely." });
 });
 
-app.post('/api/analyze_taste_shift', requireAuth, async (req: any, res: any) => {
+app.post('/api/analyze_taste_shift', requireAuth, async (req, res) => {
   res.json({ message: "Taste has shifted towards shorter, high-energy content recently.", top_new_trait: "Fast Pacing" });
 });
 
 // 2. VIRAL & DISCOVERY
-app.post('/api/generate_taste_card', requireAuth, async (req: any, res: any) => {
+app.post('/api/generate_taste_card', requireAuth, async (req, res) => {
   const profile = await getProfile(req.userId);
   const genres = profile.taste_dna.genres || {};
   const topGenre = Object.keys(genres).sort((a,b) => genres[b] - genres[a])[0] || "Exploring";
-  res.json({ card: `MY ENTERTAINMENT DNA\nTop genre: ${topGenre}\nExplorer score: ${profile.explorer_score || 50}\n@motif` });
+  res.json({ card: \`MY ENTERTAINMENT DNA\\nTop genre: \${topGenre}\\nExplorer score: \${profile.explorer_score || 50}\\n@motif\` });
 });
 
-app.post('/api/what_should_i_do_tonight', requireAuth, async (req: any, res: any) => {
+app.post('/api/what_should_i_do_tonight', requireAuth, async (req, res) => {
   res.json({ message: "Generated cross-category chain based on DNA.", chain: { WATCH: "Movie/TV", LISTEN: "Music/Podcast", PLAY: "Game", DO: "Activity" } });
 });
 
-app.post('/api/surprise_me', requireAuth, async (req: any, res: any) => {
-  res.json({ bucket: req.body.risk_level, instructions: `Generate a recommendation fitting the ${req.body.risk_level} bucket.` });
+app.post('/api/surprise_me', requireAuth, async (req, res) => {
+  res.json({ bucket: req.body.risk_level, instructions: \`Generate a recommendation fitting the \${req.body.risk_level} bucket.\` });
 });
 
-app.post('/api/sync_passive_data', requireAuth, async (req: any, res: any) => {
+app.post('/api/sync_passive_data', requireAuth, async (req, res) => {
   res.json({ status: "success", message: "Simulated sync complete." });
 });
 
-app.post('/api/group_night_match', requireAuth, async (req: any, res: any) => {
+app.post('/api/group_night_match', requireAuth, async (req, res) => {
   res.json({ compatibility_score: "85%", common_genres: ["Comedy", "Sci-Fi"] });
 });
 
-app.post('/api/generate_weekend_plan', requireAuth, async (req: any, res: any) => {
+app.post('/api/generate_weekend_plan', requireAuth, async (req, res) => {
   res.json({ friday: "Movie Night", saturday: "Gaming & Takeout", sunday: "Podcast & Walk" });
 });
 
 // 3. TMDB (MOVIES/TV)
-app.post('/api/tmdb_search_movie', requireAuth, async (req: any, res: any) => {
+app.post('/api/tmdb_search_movie', requireAuth, async (req, res) => {
   if (!process.env.TMDB_API_KEY) return res.json({ error: "TMDB_API_KEY missing in Render." });
-  res.json(await apiFetch(`https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(req.body.query)}`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` }));
+  res.json(await apiFetch(\`https://api.themoviedb.org/3/search/movie?query=\${encodeURIComponent(req.body.query)}\`, { Authorization: \`Bearer \${process.env.TMDB_API_KEY}\` }));
 });
 
-app.post('/api/tmdb_search_tv', requireAuth, async (req: any, res: any) => {
+app.post('/api/tmdb_search_tv', requireAuth, async (req, res) => {
   if (!process.env.TMDB_API_KEY) return res.json({ error: "TMDB_API_KEY missing in Render." });
-  res.json(await apiFetch(`https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(req.body.query)}`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` }));
+  res.json(await apiFetch(\`https://api.themoviedb.org/3/search/tv?query=\${encodeURIComponent(req.body.query)}\`, { Authorization: \`Bearer \${process.env.TMDB_API_KEY}\` }));
 });
 
-app.post('/api/tmdb_get_trending', requireAuth, async (req: any, res: any) => {
+app.post('/api/tmdb_get_trending', requireAuth, async (req, res) => {
   if (!process.env.TMDB_API_KEY) return res.json({ error: "TMDB_API_KEY missing." });
-  res.json(await apiFetch(`https://api.themoviedb.org/3/trending/${req.body.media_type}/day`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` }));
+  res.json(await apiFetch(\`https://api.themoviedb.org/3/trending/\${req.body.media_type}/day\`, { Authorization: \`Bearer \${process.env.TMDB_API_KEY}\` }));
 });
 
-app.post('/api/tmdb_get_similar', requireAuth, async (req: any, res: any) => {
+app.post('/api/tmdb_get_similar', requireAuth, async (req, res) => {
   if (!process.env.TMDB_API_KEY) return res.json({ error: "TMDB_API_KEY missing." });
-  res.json(await apiFetch(`https://api.themoviedb.org/3/movie/${req.body.movie_id}/similar`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` }));
+  res.json(await apiFetch(\`https://api.themoviedb.org/3/movie/\${req.body.movie_id}/similar\`, { Authorization: \`Bearer \${process.env.TMDB_API_KEY}\` }));
 });
 
-app.post('/api/tmdb_get_providers', requireAuth, async (req: any, res: any) => {
+app.post('/api/tmdb_get_providers', requireAuth, async (req, res) => {
   if (!process.env.TMDB_API_KEY) return res.json({ error: "TMDB_API_KEY missing." });
-  res.json(await apiFetch(`https://api.themoviedb.org/3/movie/${req.body.movie_id}/watch/providers`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` }));
+  res.json(await apiFetch(\`https://api.themoviedb.org/3/movie/\${req.body.movie_id}/watch/providers\`, { Authorization: \`Bearer \${process.env.TMDB_API_KEY}\` }));
 });
 
 // 4. JIKAN (ANIME/MANGA - FREE)
-app.post('/api/jikan_search_anime', requireAuth, async (req: any, res: any) => {
-  res.json(await apiFetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(req.body.query)}&sfw=true`));
+app.post('/api/jikan_search_anime', requireAuth, async (req, res) => {
+  res.json(await apiFetch(\`https://api.jikan.moe/v4/anime?q=\${encodeURIComponent(req.body.query)}&sfw=true\`));
 });
 
-app.post('/api/jikan_get_top_anime', requireAuth, async (req: any, res: any) => {
-  const filter = req.body.filter ? `?filter=${req.body.filter}` : '';
-  res.json(await apiFetch(`https://api.jikan.moe/v4/top/anime${filter}`));
+app.post('/api/jikan_get_top_anime', requireAuth, async (req, res) => {
+  const filter = req.body.filter ? \`?filter=\${req.body.filter}\` : '';
+  res.json(await apiFetch(\`https://api.jikan.moe/v4/top/anime\${filter}\`));
 });
 
-app.post('/api/jikan_search_manga', requireAuth, async (req: any, res: any) => {
-  res.json(await apiFetch(`https://api.jikan.moe/v4/manga?q=${encodeURIComponent(req.body.query)}`));
+app.post('/api/jikan_search_manga', requireAuth, async (req, res) => {
+  res.json(await apiFetch(\`https://api.jikan.moe/v4/manga?q=\${encodeURIComponent(req.body.query)}\`));
 });
 
-app.post('/api/jikan_get_season_now', requireAuth, async (req: any, res: any) => {
-  res.json(await apiFetch(`https://api.jikan.moe/v4/seasons/now`));
+app.post('/api/jikan_get_season_now', requireAuth, async (req, res) => {
+  res.json(await apiFetch(\`https://api.jikan.moe/v4/seasons/now\`));
 });
 
 // 5. ITUNES (MUSIC/PODCASTS - FREE)
-app.post('/api/itunes_search_music', requireAuth, async (req: any, res: any) => {
-  res.json(await apiFetch(`https://itunes.apple.com/search?term=${encodeURIComponent(req.body.query)}&entity=musicTrack&limit=10`));
+app.post('/api/itunes_search_music', requireAuth, async (req, res) => {
+  res.json(await apiFetch(\`https://itunes.apple.com/search?term=\${encodeURIComponent(req.body.query)}&entity=musicTrack&limit=10\`));
 });
 
-app.post('/api/itunes_search_podcast', requireAuth, async (req: any, res: any) => {
-  res.json(await apiFetch(`https://itunes.apple.com/search?term=${encodeURIComponent(req.body.query)}&entity=podcast&limit=10`));
+app.post('/api/itunes_search_podcast', requireAuth, async (req, res) => {
+  res.json(await apiFetch(\`https://itunes.apple.com/search?term=\${encodeURIComponent(req.body.query)}&entity=podcast&limit=10\`));
 });
 
 // 6. GOOGLE BOOKS (BOOKS - FREE)
-app.post('/api/google_books_search', requireAuth, async (req: any, res: any) => {
-  res.json(await apiFetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(req.body.query)}`));
+app.post('/api/google_books_search', requireAuth, async (req, res) => {
+  res.json(await apiFetch(\`https://www.googleapis.com/books/v1/volumes?q=\${encodeURIComponent(req.body.query)}\`));
 });
 
 // 7. FREETOGAME (GAMES - FREE)
-app.post('/api/freetogame_get_games', requireAuth, async (req: any, res: any) => {
+app.post('/api/freetogame_get_games', requireAuth, async (req, res) => {
   let url = 'https://www.freetogame.com/api/games?';
-  if (req.body.platform) url += `platform=${req.body.platform}&`;
-  if (req.body.category) url += `category=${req.body.category}`;
+  if (req.body.platform) url += \`platform=\${req.body.platform}&\`;
+  if (req.body.category) url += \`category=\${req.body.category}\`;
   res.json(await apiFetch(url));
 });
 
-app.post('/api/freetogame_sort', requireAuth, async (req: any, res: any) => {
-  res.json(await apiFetch(`https://www.freetogame.com/api/games?sort-by=${req.body.sort_by}`));
+app.post('/api/freetogame_sort', requireAuth, async (req, res) => {
+  res.json(await apiFetch(\`https://www.freetogame.com/api/games?sort-by=\${req.body.sort_by}\`));
 });
 
 // 8. THEMEALDB (RECIPES - FREE)
-app.post('/api/themealdb_search_recipe', requireAuth, async (req: any, res: any) => {
-  res.json(await apiFetch(`https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(req.body.query)}`));
+app.post('/api/themealdb_search_recipe', requireAuth, async (req, res) => {
+  res.json(await apiFetch(\`https://www.themealdb.com/api/json/v1/1/search.php?s=\${encodeURIComponent(req.body.query)}\`));
 });
 
-app.post('/api/themealdb_get_random', requireAuth, async (req: any, res: any) => {
-  res.json(await apiFetch(`https://www.themealdb.com/api/json/v1/1/random.php`));
+app.post('/api/themealdb_get_random', requireAuth, async (req, res) => {
+  res.json(await apiFetch(\`https://www.themealdb.com/api/json/v1/1/random.php\`));
 });
 
 // 9. CUSTOM LISTS & GENERAL
-app.post('/api/manage_custom_list', requireAuth, async (req: any, res: any) => {
+app.post('/api/manage_custom_list', requireAuth, async (req, res) => {
   const profile = await getProfile(req.userId);
   if (!profile.custom_lists[req.body.list_name]) profile.custom_lists[req.body.list_name] = [];
   if (req.body.action === "add_item" && req.body.item) profile.custom_lists[req.body.list_name].push(req.body.item);
   if (req.body.action === "remove_item" && req.body.item) {
-    profile.custom_lists[req.body.list_name] = profile.custom_lists[req.body.list_name].filter((i: any) => i !== req.body.item);
+    profile.custom_lists[req.body.list_name] = profile.custom_lists[req.body.list_name].filter(i => i !== req.body.item);
   }
   await saveProfile(req.userId, profile);
   res.json({ status: "success", list: profile.custom_lists[req.body.list_name] });
 });
 
-app.post('/api/general_entertainment_query', requireAuth, async (req: any, res: any) => {
+app.post('/api/general_entertainment_query', requireAuth, async (req, res) => {
   const profile = await getProfile(req.userId);
-  profile.history.push({ title: `General Query: ${req.body.query}`, interaction: "Searched", timestamp: new Date().toISOString() });
+  profile.history.push({ title: \`General Query: \${req.body.query}\`, interaction: "Searched", timestamp: new Date().toISOString() });
   await saveProfile(req.userId, profile);
   res.json({ status: "logged", message: "Query logged to Context Engine. Answer based on vast general knowledge." });
 });
 
 // --- OPENAPI SCHEMA GENERATOR ---
-app.get('/openapi.json', (req: any, res: any) => {
-  const schema: any = {
+app.get('/openapi.json', (req, res) => {
+  const schema = {
     openapi: "3.1.0",
     info: { title: "Motif API", description: "The personal entertainment intelligence layer.", version: "4.0.0" },
     servers: [{ url: "https://motif-23oq.onrender.com" }],
@@ -275,7 +276,7 @@ app.get('/openapi.json', (req: any, res: any) => {
           type: "oauth2",
           flows: {
             authorizationCode: {
-              authorizationUrl: "https://motif-23oq.onrender.com/auth",
+              authorizationUrl: "https://motif-23oq.onrender.com/",
               tokenUrl: "https://motif-23oq.onrender.com/token",
               scopes: {}
             }
@@ -286,7 +287,7 @@ app.get('/openapi.json', (req: any, res: any) => {
     security: [{ OAuth2: [] }]
   };
 
-  const addEndpoint = (path: string, desc: string, props: any) => {
+  const addEndpoint = (path, desc, props) => {
     schema.paths[path] = {
       post: {
         description: desc,
@@ -349,7 +350,6 @@ app.get('/openapi.json', (req: any, res: any) => {
 
 // --- BASIC ROUTES ---
 app.get('/health', (req, res) => res.json({ status: "Motif REST API running", version: "5.0 (ChatGPT GPT Compatible)", actions_count: 32 }));
-app.get('/auth', (req, res) => res.sendFile(path.join(__dirname, 'public', 'authorize.html')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'authorize.html')));
 app.post('/token', (req, res) => {
   const code = req.body.code || req.query.code || req.body.client_id;
@@ -358,4 +358,8 @@ app.post('/token', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Motif REST Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(\`Motif REST Server running on port \${PORT}\`));
+`;
+
+fs.writeFileSync('server.ts', code);
+console.log('Motif REST Architecture Injected for ChatGPT GPT compatibility');
