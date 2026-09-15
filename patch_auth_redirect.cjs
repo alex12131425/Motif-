@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+const fs = require('fs');
+
+const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -208,9 +210,9 @@
       const storedState = sessionStorage.getItem('motif_oauth_state');
       
       if (storedUri && storedState) {
-        window.location.href = `${storedUri}?code=${uid}&state=${storedState}`;
+        window.location.href = \`\${storedUri}?code=\${uid}&state=\${storedState}\`;
       } else {
-        document.getElementById('appContainer').innerHTML = `
+        document.getElementById('appContainer').innerHTML = \`
           <div class="flex flex-col items-center justify-center h-full text-center py-20">
             <div class="w-20 h-20 bg-[#39FF14] rounded-full flex items-center justify-center mb-6">
               <svg class="w-10 h-10 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
@@ -218,7 +220,7 @@
             <h2 class="text-3xl font-bold mb-3 tracking-tight">Connected</h2>
             <p class="text-[#6e6e73] text-[15px]">You can securely close this window and return to ChatGPT.</p>
           </div>
-        `;
+        \`;
       }
     }
 
@@ -284,7 +286,7 @@
           const cred = await createUserWithEmailAndPassword(auth, email, password);
           const firstName = firstNameInput.value;
           const lastName = lastNameInput.value;
-          await updateProfile(cred.user, { displayName: `${firstName} ${lastName}`.trim() });
+          await updateProfile(cred.user, { displayName: \`\${firstName} \${lastName}\`.trim() });
           handleSuccess(cred.user.uid);
         } else {
           const cred = await signInWithEmailAndPassword(auth, email, password);
@@ -313,3 +315,6 @@
   </script>
 </body>
 </html>
+`;
+fs.writeFileSync('public/authorize.html', html);
+console.log('Done writing new authorize.html');
