@@ -1,4 +1,6 @@
-import express from 'express';
+const fs = require('fs');
+
+const code = `import express from 'express';
 import cors from 'cors';
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
@@ -41,7 +43,7 @@ const defaultMotifProfile = {
   library: [], history: [], custom_lists: {}, connected_sources: [], explorer_score: 50
 };
 
-async function getProfile(userId: string) {
+async function getProfile(userId) {
   try {
     const userRef = doc(db, 'motif_users', userId);
     const snap = await getDoc(userRef);
@@ -50,19 +52,19 @@ async function getProfile(userId: string) {
   return JSON.parse(JSON.stringify(defaultMotifProfile));
 }
 
-async function saveProfile(userId: string, profile: any) {
+async function saveProfile(userId, profile) {
   try {
     const userRef = doc(db, 'motif_users', userId);
     await setDoc(userRef, { profile }, { merge: true });
   } catch (e) { console.error("Firestore save error:", e); }
 }
 
-async function apiFetch(url: string, headers: any = {}) {
+async function apiFetch(url, headers = {}) {
   try {
     const res = await fetch(url, { headers });
-    if (!res.ok) return { error: `API returned ${res.status}` };
+    if (!res.ok) return { error: \\\`API returned \\\${res.status}\\\` };
     return await res.json();
-  } catch (e: any) {
+  } catch (e) {
     return { error: e.message };
   }
 }
@@ -103,7 +105,7 @@ const TOOLS_SCHEMA = [
   { name: "general_entertainment_query", description: "Catch-all query.", inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } }
 ];
 
-async function executeTool(name: string, args: any, userId: string) {
+async function executeTool(name, args, userId) {
   let profile = await getProfile(userId);
   const today = new Date().toISOString();
 
@@ -133,7 +135,7 @@ async function executeTool(name: string, args: any, userId: string) {
     }
     case "remove_from_library": {
       const initialLen = profile.library.length;
-      profile.library = profile.library.filter((i: any) => i.title.toLowerCase() !== args.title.toLowerCase());
+      profile.library = profile.library.filter((i) => i.title.toLowerCase() !== args.title.toLowerCase());
       await saveProfile(userId, profile);
       return { status: "success", removed: initialLen > profile.library.length };
     }
@@ -150,38 +152,38 @@ async function executeTool(name: string, args: any, userId: string) {
     case "generate_taste_card": {
       const genres = profile.taste_dna.genres || {};
       const topGenre = Object.keys(genres).sort((a,b) => genres[b] - genres[a])[0] || "Exploring";
-      return { card: `MY ENTERTAINMENT DNA\nTop genre: ${topGenre}\nExplorer score: ${profile.explorer_score || 50}\n@motif` };
+      return { card: \\\`MY ENTERTAINMENT DNA\\\\nTop genre: \\\${topGenre}\\\\nExplorer score: \\\${profile.explorer_score || 50}\\\\n@motif\\\` };
     }
     case "what_should_i_do_tonight": return { message: "Generated cross-category chain based on DNA.", chain: { WATCH: "Movie/TV", LISTEN: "Music/Podcast", PLAY: "Game", DO: "Activity" } };
-    case "surprise_me": return { bucket: args.risk_level, instructions: `Generate a recommendation fitting the ${args.risk_level} bucket.` };
+    case "surprise_me": return { bucket: args.risk_level, instructions: \\\`Generate a recommendation fitting the \\\${args.risk_level} bucket.\\\` };
     case "sync_passive_data": return { status: "success", message: "Simulated sync complete." };
     case "group_night_match": return { compatibility_score: "85%", common_genres: ["Comedy", "Sci-Fi"] };
     case "generate_weekend_plan": return { friday: "Movie Night", saturday: "Gaming & Takeout", sunday: "Podcast & Walk" };
-    case "tmdb_search_movie": return await apiFetch(`https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(args.query)}`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
-    case "tmdb_search_tv": return await apiFetch(`https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(args.query)}`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
-    case "tmdb_get_trending": return await apiFetch(`https://api.themoviedb.org/3/trending/${args.media_type}/day`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
-    case "tmdb_get_similar": return await apiFetch(`https://api.themoviedb.org/3/movie/${args.movie_id}/similar`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
-    case "tmdb_get_providers": return await apiFetch(`https://api.themoviedb.org/3/movie/${args.movie_id}/watch/providers`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
-    case "jikan_search_anime": return await apiFetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(args.query)}&sfw=true`);
-    case "jikan_get_top_anime": return await apiFetch(`https://api.jikan.moe/v4/top/anime${args.filter ? '?filter=' + args.filter : ''}`);
-    case "jikan_search_manga": return await apiFetch(`https://api.jikan.moe/v4/manga?q=${encodeURIComponent(args.query)}`);
-    case "jikan_get_season_now": return await apiFetch(`https://api.jikan.moe/v4/seasons/now`);
-    case "itunes_search_music": return await apiFetch(`https://itunes.apple.com/search?term=${encodeURIComponent(args.query)}&entity=musicTrack&limit=10`);
-    case "itunes_search_podcast": return await apiFetch(`https://itunes.apple.com/search?term=${encodeURIComponent(args.query)}&entity=podcast&limit=10`);
-    case "google_books_search": return await apiFetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(args.query)}`);
-    case "freetogame_get_games": return await apiFetch(`https://www.freetogame.com/api/games?platform=${args.platform||''}&category=${args.category||''}`);
-    case "freetogame_sort": return await apiFetch(`https://www.freetogame.com/api/games?sort-by=${args.sort_by}`);
-    case "themealdb_search_recipe": return await apiFetch(`https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(args.query)}`);
-    case "themealdb_get_random": return await apiFetch(`https://www.themealdb.com/api/json/v1/1/random.php`);
+    case "tmdb_search_movie": return await apiFetch(\\\`https://api.themoviedb.org/3/search/movie?query=\\\${encodeURIComponent(args.query)}\\\`, { Authorization: \\\`Bearer \\\${process.env.TMDB_API_KEY}\\\` });
+    case "tmdb_search_tv": return await apiFetch(\\\`https://api.themoviedb.org/3/search/tv?query=\\\${encodeURIComponent(args.query)}\\\`, { Authorization: \\\`Bearer \\\${process.env.TMDB_API_KEY}\\\` });
+    case "tmdb_get_trending": return await apiFetch(\\\`https://api.themoviedb.org/3/trending/\\\${args.media_type}/day\\\`, { Authorization: \\\`Bearer \\\${process.env.TMDB_API_KEY}\\\` });
+    case "tmdb_get_similar": return await apiFetch(\\\`https://api.themoviedb.org/3/movie/\\\${args.movie_id}/similar\\\`, { Authorization: \\\`Bearer \\\${process.env.TMDB_API_KEY}\\\` });
+    case "tmdb_get_providers": return await apiFetch(\\\`https://api.themoviedb.org/3/movie/\\\${args.movie_id}/watch/providers\\\`, { Authorization: \\\`Bearer \\\${process.env.TMDB_API_KEY}\\\` });
+    case "jikan_search_anime": return await apiFetch(\\\`https://api.jikan.moe/v4/anime?q=\\\${encodeURIComponent(args.query)}&sfw=true\\\`);
+    case "jikan_get_top_anime": return await apiFetch(\\\`https://api.jikan.moe/v4/top/anime\\\${args.filter ? '?filter=' + args.filter : ''}\\\`);
+    case "jikan_search_manga": return await apiFetch(\\\`https://api.jikan.moe/v4/manga?q=\\\${encodeURIComponent(args.query)}\\\`);
+    case "jikan_get_season_now": return await apiFetch(\\\`https://api.jikan.moe/v4/seasons/now\\\`);
+    case "itunes_search_music": return await apiFetch(\\\`https://itunes.apple.com/search?term=\\\${encodeURIComponent(args.query)}&entity=musicTrack&limit=10\\\`);
+    case "itunes_search_podcast": return await apiFetch(\\\`https://itunes.apple.com/search?term=\\\${encodeURIComponent(args.query)}&entity=podcast&limit=10\\\`);
+    case "google_books_search": return await apiFetch(\\\`https://www.googleapis.com/books/v1/volumes?q=\\\${encodeURIComponent(args.query)}\\\`);
+    case "freetogame_get_games": return await apiFetch(\\\`https://www.freetogame.com/api/games?platform=\\\${args.platform||''}&category=\\\${args.category||''}\\\`);
+    case "freetogame_sort": return await apiFetch(\\\`https://www.freetogame.com/api/games?sort-by=\\\${args.sort_by}\\\`);
+    case "themealdb_search_recipe": return await apiFetch(\\\`https://www.themealdb.com/api/json/v1/1/search.php?s=\\\${encodeURIComponent(args.query)}\\\`);
+    case "themealdb_get_random": return await apiFetch(\\\`https://www.themealdb.com/api/json/v1/1/random.php\\\`);
     case "manage_custom_list": {
       if (!profile.custom_lists[args.list_name]) profile.custom_lists[args.list_name] = [];
       if (args.action === "add_item" && args.item) profile.custom_lists[args.list_name].push(args.item);
-      if (args.action === "remove_item" && args.item) profile.custom_lists[args.list_name] = profile.custom_lists[args.list_name].filter((i: any) => i !== args.item);
+      if (args.action === "remove_item" && args.item) profile.custom_lists[args.list_name] = profile.custom_lists[args.list_name].filter(i => i !== args.item);
       await saveProfile(userId, profile);
       return { status: "success", list: profile.custom_lists[args.list_name] };
     }
     case "general_entertainment_query": {
-      profile.history.push({ title: `General Query: ${args.query}`, interaction: "Searched", timestamp: today });
+      profile.history.push({ title: \\\`General Query: \\\${args.query}\\\`, interaction: "Searched", timestamp: today });
       await saveProfile(userId, profile);
       return { status: "logged", message: "Query logged to Context Engine. Answer based on vast general knowledge." };
     }
@@ -190,18 +192,18 @@ async function executeTool(name: string, args: any, userId: string) {
 }
 
 // --- AUTH ENDPOINTS ---
-app.get('/auth', (req: any, res: any) => res.sendFile(path.join(__dirname, 'public', 'authorize.html')));
-app.get('/', (req: any, res: any) => res.sendFile(path.join(__dirname, 'public', 'authorize.html')));
-app.post('/token', (req: any, res: any) => {
+app.get('/auth', (req, res) => res.sendFile(path.join(__dirname, 'public', 'authorize.html')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'authorize.html')));
+app.post('/token', (req, res) => {
   const code = req.body.code || req.query.code || req.body.client_id;
   if (!code) return res.status(400).json({ error: "Missing code parameter" });
   res.json({ access_token: code, token_type: "bearer", expires_in: 31536000, refresh_token: code });
 });
 
 // --- MCP SSE INTEGRATION ---
-const transports = new Map<string, SSEServerTransport>();
+const transports = new Map();
 
-app.get('/sse', async (req: any, res: any) => {
+app.get('/sse', async (req, res) => {
   // STRICT OAUTH CHECK FOR CHATGPT MCP PLUGIN
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -221,7 +223,7 @@ app.get('/sse', async (req: any, res: any) => {
     try {
       const result = await executeTool(request.params.name, request.params.arguments || {}, authUserId);
       return { content: [{ type: "text", text: JSON.stringify(result) }] };
-    } catch (e: any) {
+    } catch (e) {
       return { content: [{ type: "text", text: JSON.stringify({ error: e.message }) }] };
     }
   });
@@ -229,12 +231,21 @@ app.get('/sse', async (req: any, res: any) => {
   await mcpServer.connect(transport);
 });
 
-app.post('/messages', async (req: any, res: any) => {
-  const sessionId = req.query.sessionId as string;
+app.post('/messages', async (req, res) => {
+  const sessionId = req.query.sessionId;
   const transport = transports.get(sessionId);
   if (!transport) return res.status(404).json({ error: "Session not found" });
   await transport.handlePostMessage(req, res);
 });
 
+// KEEP REST API OPENAPI FOR FALLBACK
+app.get('/openapi.json', (req, res) => {
+  res.json({ openapi: "3.1.0", info: { title: "Motif API", version: "4.0.0" }, paths: {} });
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Motif Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(\\\`Motif Server running on port \\\${PORT}\\\`));
+\`;
+
+fs.writeFileSync('server.ts', code);
+console.log('Motif Full MCP + REST Architecture Restored');
