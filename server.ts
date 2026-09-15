@@ -195,7 +195,7 @@ app.get('/', (req: any, res: any) => res.sendFile(path.join(__dirname, 'public',
 app.post('/token', (req: any, res: any) => {
   const code = req.body.code || req.query.code || req.body.client_id;
   if (!code) return res.status(400).json({ error: "Missing code parameter" });
-  res.json({ access_token: code, token_type: "bearer", expires_in: 31536000, refresh_token: code });
+  res.json({ access_token: code, token_type: "Bearer", expires_in: 31536000, refresh_token: code });
 });
 
 // --- MCP SSE INTEGRATION ---
@@ -206,7 +206,7 @@ app.get('/sse', async (req: any, res: any) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     console.log("MCP /sse request blocked: No valid Authorization header.");
-    return res.status(401).json({ error: "Unauthorized. Missing or invalid Authorization header. Please login via OAuth." });
+    return res.status(401).set("WWW-Authenticate", "Bearer").json({ error: "Unauthorized. Missing or invalid Authorization header. Please login via OAuth." });
   }
   
   const authUserId = authHeader.substring(7);
@@ -230,6 +230,10 @@ app.get('/sse', async (req: any, res: any) => {
 });
 
 app.post('/messages', async (req: any, res: any) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).set("WWW-Authenticate", "Bearer").json({ error: "Unauthorized" });
+  }
   const sessionId = req.query.sessionId as string;
   const transport = transports.get(sessionId);
   if (!transport) return res.status(404).json({ error: "Session not found" });

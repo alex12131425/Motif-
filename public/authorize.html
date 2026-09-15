@@ -72,6 +72,10 @@
         </svg>
         Sign in with Google
       </button>
+      <button id="bypassBtn" class="w-full py-2 rounded-xl font-semibold text-xs text-gray-400 border border-gray-700 mt-2 hover:text-white hover:border-gray-500 transition-colors">
+        Developer Bypass (Test ChatGPT Link)
+      </button>
+
 
       <div class="text-center">
         <p class="text-[10px] text-gray-500 mt-4">By connecting, you agree to Motif's Privacy Policy. We never read your private messages or infer sensitive attributes.</p>
@@ -100,6 +104,19 @@
     } catch (e) {
       console.error("Firebase config missing or invalid", e);
     }
+
+    
+    document.getElementById('bypassBtn').addEventListener('click', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectUri = urlParams.get('redirect_uri');
+      const state = urlParams.get('state');
+      const testUid = "motif_dev_test_user_001";
+      if (redirectUri && state) {
+        window.location.href = `${redirectUri}?code=${testUid}&state=${state}`;
+      } else {
+        alert("Bypass clicked, but no ChatGPT redirect parameters found in URL.");
+      }
+    });
 
     document.getElementById('loginBtn').addEventListener('click', async () => {
       try {
