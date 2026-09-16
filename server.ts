@@ -75,11 +75,12 @@ async function apiFetch(url: string, headers: any = {}) {
 
 
 
+
 // --- MODERN LAYOUT ENGINE ---
 function buildModernCard(items, title) {
   if (!items || items.length === 0) return "No results found.";
   
-  let layout = `# 🍿 **${title}**\n\n---\n\n`;
+  let layout = `# 🍿 **${title}**\n\n`;
   
   items.slice(0, 5).forEach((media, index) => {
     const poster = media.poster_path ? `https://image.tmdb.org/t/p/w500${media.poster_path}` : '';
@@ -88,17 +89,14 @@ function buildModernCard(items, title) {
     const rating = media.vote_average ? media.vote_average.toFixed(1) : 'N/A';
     const overview = (media.overview || '').substring(0, 150) + '...';
     
-    layout += `### ${index + 1}. **${name}** (${year})\n`;
+    layout += `### ${index + 1}. ${name} (${year})\n`;
     if (poster) {
-      layout += `![${name}](${poster})\n\n`;
+      layout += `![${name} Poster](${poster})\n\n`;
     }
     layout += `**⭐ ${rating}/10** | *${overview}*\n\n---\n\n`;
   });
   
-  layout += `**🔹 Quick Actions (Tell me to do these!):**\n`;
-  layout += `💾 "Save [Movie Name] to my library"\n`;
-  layout += `👍 "I loved [Movie Name], update my DNA"\n`;
-  layout += `🔍 "Show me trailers for these"\n`;
+  layout += `**🔹 Quick Actions:**\n- 💾 "Save to library"\n- 👍 "Update my DNA"`;
   
   return layout;
 }
@@ -196,20 +194,21 @@ async function executeTool(name: string, args: any, userId: string) {
     case "generate_weekend_plan": return { friday: "Movie Night", saturday: "Gaming & Takeout", sunday: "Podcast & Walk" };
     
     
+    
     case "tmdb_search_movie": {
       const data = await apiFetch(`https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(args.query)}`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
       const layout = buildModernCard(data.results, `Search Results for "${args.query}"`);
-      return { data: data.results.slice(0, 5), presentation_layout: layout, instructions: "CRITICAL: You MUST output the exact string provided in 'presentation_layout' to the user. It is a pre-formatted Markdown UI card. DO NOT wrap it in a code block." };
+      return { _instruction_to_model: "You MUST copy and paste the 'markdown_ui' field below exactly as it is into your response to the user. Do not summarize it. Do not put it in a code block. Render it directly so the user sees the images.", markdown_ui: layout };
     }
     case "tmdb_search_tv": {
       const data = await apiFetch(`https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(args.query)}`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
       const layout = buildModernCard(data.results, `Search Results for "${args.query}"`);
-      return { data: data.results.slice(0, 5), presentation_layout: layout, instructions: "CRITICAL: You MUST output the exact string provided in 'presentation_layout' to the user. DO NOT wrap it in a code block." };
+      return { _instruction_to_model: "You MUST copy and paste the 'markdown_ui' field below exactly as it is into your response to the user. Do not summarize it. Render it directly.", markdown_ui: layout };
     }
     case "tmdb_get_trending": {
       const data = await apiFetch(`https://api.themoviedb.org/3/trending/${args.media_type}/day`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
       const layout = buildModernCard(data.results, `Trending ${args.media_type.toUpperCase()}s Today`);
-      return { data: data.results.slice(0, 5), presentation_layout: layout, instructions: "CRITICAL: You MUST output the exact string provided in 'presentation_layout' to the user. DO NOT wrap it in a code block." };
+      return { _instruction_to_model: "You MUST copy and paste the 'markdown_ui' field exactly as it is into your response to the user so the images render.", markdown_ui: layout };
     }
 
     case "tmdb_get_similar": return await apiFetch(`https://api.themoviedb.org/3/movie/${args.movie_id}/similar`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
