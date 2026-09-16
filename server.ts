@@ -73,45 +73,34 @@ async function apiFetch(url: string, headers: any = {}) {
 }
 
 
-// --- MODERN LAYOUT ENGINE ---
-function buildModernCard(media, providers, type) {
-  const poster = media.poster_path ? `https://image.tmdb.org/t/p/w500${media.poster_path}` : (media.image_url || '');
-  const title = media.title || media.name || 'Unknown Title';
-  const year = (media.release_date || media.first_air_date || media.year || '').toString().split('-')[0];
-  const rating = media.vote_average ? media.vote_average.toFixed(1) : (media.score || 'N/A');
-  const overview = media.overview || media.synopsis || 'No description available.';
-  
-  let watchLinks = [];
-  if (providers && providers.results && providers.results.US) {
-    const us = providers.results.US;
-    if (us.flatrate) watchLinks.push(`[▶️ Stream on ${us.flatrate[0].provider_name}](${us.link})`);
-    else if (us.rent) watchLinks.push(`[🛒 Rent on ${us.rent[0].provider_name}](${us.link})`);
-    else if (us.buy) watchLinks.push(`[💳 Buy on ${us.buy[0].provider_name}](${us.link})`);
-  }
-  
-  const tmdbLink = type === 'movie' ? `https://www.themoviedb.org/movie/${media.id}` : (type === 'tv' ? `https://www.themoviedb.org/tv/${media.id}` : '');
-  if (watchLinks.length === 0 && tmdbLink) {
-    watchLinks.push(`[▶️ Find Where to Watch](${tmdbLink}/watch)`);
-  }
-  const watchText = watchLinks.length > 0 ? watchLinks.join(' | ') : '[▶️ Search Providers](https://www.justwatch.com)';
 
-  return `
-> # 🎬 **${title}** (${year})
-> ![${title} Poster](${poster})
-> 
-> **⭐ ${rating}/10**
-> 
-> *${overview}*
-> 
-> ---
-> ${watchText}
-> 
-> **🔹 Quick Actions (Tell me to do these!):**
-> 💾 "Save to my Motif Library"
-> 👍 "I loved this, update my DNA"
-> 👎 "Not for me"
-> 🔍 "Show me 5 more like this"
-`;
+
+// --- MODERN LAYOUT ENGINE ---
+function buildModernCard(items, title) {
+  if (!items || items.length === 0) return "No results found.";
+  
+  let layout = `# 🍿 **${title}**\n\n---\n\n`;
+  
+  items.slice(0, 5).forEach((media, index) => {
+    const poster = media.poster_path ? `https://image.tmdb.org/t/p/w500${media.poster_path}` : '';
+    const name = media.title || media.name || 'Unknown Title';
+    const year = (media.release_date || media.first_air_date || media.year || '').toString().split('-')[0];
+    const rating = media.vote_average ? media.vote_average.toFixed(1) : 'N/A';
+    const overview = (media.overview || '').substring(0, 150) + '...';
+    
+    layout += `### ${index + 1}. **${name}** (${year})\n`;
+    if (poster) {
+      layout += `![${name}](${poster})\n\n`;
+    }
+    layout += `**⭐ ${rating}/10** | *${overview}*\n\n---\n\n`;
+  });
+  
+  layout += `**🔹 Quick Actions (Tell me to do these!):**\n`;
+  layout += `💾 "Save [Movie Name] to my library"\n`;
+  layout += `👍 "I loved [Movie Name], update my DNA"\n`;
+  layout += `🔍 "Show me trailers for these"\n`;
+  
+  return layout;
 }
 
 // --- TOOLS SCHEMA
@@ -206,35 +195,21 @@ async function executeTool(name: string, args: any, userId: string) {
     case "group_night_match": return { compatibility_score: "85%", common_genres: ["Comedy", "Sci-Fi"] };
     case "generate_weekend_plan": return { friday: "Movie Night", saturday: "Gaming & Takeout", sunday: "Podcast & Walk" };
     
+    
     case "tmdb_search_movie": {
       const data = await apiFetch(`https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(args.query)}`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
-      if (data.results && data.results.length > 0) {
-        const movie = data.results[0];
-        const providers = await apiFetch(`https://api.themoviedb.org/3/movie/${movie.id}/watch/providers`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
-        const layout = buildModernCard(movie, providers, 'movie');
-        return { data: data.results.slice(0, 3), presentation_layout: layout, instructions: "CRITICAL: You MUST output the exact string provided in 'presentation_layout' to the user. It is a pre-formatted Markdown UI card. Do not modify the layout string." };
-      }
-      return data;
+      const layout = buildModernCard(data.results, `Search Results for "${args.query}"`);
+      return { data: data.results.slice(0, 5), presentation_layout: layout, instructions: "CRITICAL: You MUST output the exact string provided in 'presentation_layout' to the user. It is a pre-formatted Markdown UI card. DO NOT wrap it in a code block." };
     }
     case "tmdb_search_tv": {
       const data = await apiFetch(`https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(args.query)}`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
-      if (data.results && data.results.length > 0) {
-        const tv = data.results[0];
-        const providers = await apiFetch(`https://api.themoviedb.org/3/tv/${tv.id}/watch/providers`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
-        const layout = buildModernCard(tv, providers, 'tv');
-        return { data: data.results.slice(0, 3), presentation_layout: layout, instructions: "CRITICAL: You MUST output the exact string provided in 'presentation_layout' to the user. It is a pre-formatted Markdown UI card." };
-      }
-      return data;
+      const layout = buildModernCard(data.results, `Search Results for "${args.query}"`);
+      return { data: data.results.slice(0, 5), presentation_layout: layout, instructions: "CRITICAL: You MUST output the exact string provided in 'presentation_layout' to the user. DO NOT wrap it in a code block." };
     }
     case "tmdb_get_trending": {
       const data = await apiFetch(`https://api.themoviedb.org/3/trending/${args.media_type}/day`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
-      if (data.results && data.results.length > 0) {
-        const item = data.results[0];
-        const providers = await apiFetch(`https://api.themoviedb.org/3/${args.media_type}/${item.id}/watch/providers`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
-        const layout = buildModernCard(item, providers, args.media_type);
-        return { data: data.results.slice(0, 5), presentation_layout: layout, instructions: "CRITICAL: You MUST output the exact string provided in 'presentation_layout' to the user. It is a pre-formatted Markdown UI card." };
-      }
-      return data;
+      const layout = buildModernCard(data.results, `Trending ${args.media_type.toUpperCase()}s Today`);
+      return { data: data.results.slice(0, 5), presentation_layout: layout, instructions: "CRITICAL: You MUST output the exact string provided in 'presentation_layout' to the user. DO NOT wrap it in a code block." };
     }
 
     case "tmdb_get_similar": return await apiFetch(`https://api.themoviedb.org/3/movie/${args.movie_id}/similar`, { Authorization: `Bearer ${process.env.TMDB_API_KEY}` });
@@ -265,6 +240,94 @@ async function executeTool(name: string, args: any, userId: string) {
     default: return { error: "Tool not implemented" };
   }
 }
+
+
+// --- WIDGET ENDPOINTS (Rich UI for Mobile/Web) ---
+app.get('/widget/movie/:id', async (req, res) => {
+  const movieId = req.params.id;
+  try {
+    const movieRes = await fetch(`https://api.themoviedb.org/3/movie/${movieId}?append_to_response=videos,credits`, {
+      headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` }
+    });
+    const movie = await movieRes.json();
+    
+    if (movie.error) return res.send("Movie not found");
+
+    const poster = movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : '';
+    const backdrop = movie.backdrop_path ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}` : '';
+    const trailer = movie.videos && movie.videos.results ? movie.videos.results.find((v) => v.type === 'Trailer') : null;
+    
+    const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+      <title>${movie.title} - Motif Widget</title>
+      <script src="https://cdn.tailwindcss.com"></script>
+      <style>
+        body { background-color: #050505; color: white; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+        .glass { background: rgba(20, 20, 20, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.1); }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+      </style>
+    </head>
+    <body class="relative min-h-screen pb-24">
+      <!-- Backdrop -->
+      <div class="absolute top-0 left-0 w-full h-[60vh] z-0">
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/80 to-[#050505] z-10"></div>
+        ${backdrop ? `<img src="${backdrop}" class="w-full h-full object-cover opacity-60" />` : ''}
+      </div>
+
+      <!-- Content -->
+      <div class="relative z-20 pt-32 px-6">
+        <div class="flex space-x-6 items-end mb-6">
+          ${poster ? `<img src="${poster}" class="w-32 rounded-2xl shadow-2xl border border-white/10" />` : ''}
+          <div class="pb-2">
+            <h1 class="text-3xl font-bold leading-tight mb-2">${movie.title}</h1>
+            <div class="flex items-center space-x-3 text-sm text-gray-400">
+              <span class="bg-[#39FF14]/20 text-[#39FF14] px-2 py-1 rounded-md font-bold">⭐ ${movie.vote_average.toFixed(1)}</span>
+              <span>${movie.release_date.split('-')[0]}</span>
+              <span>${movie.runtime} min</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-gray-300 leading-relaxed mb-8">${movie.overview}</p>
+
+        <!-- Cast Carousel -->
+        ${movie.credits && movie.credits.cast && movie.credits.cast.length > 0 ? `
+        <h3 class="text-lg font-semibold mb-4">Top Cast</h3>
+        <div class="flex overflow-x-auto space-x-4 hide-scroll pb-4">
+          ${movie.credits.cast.slice(0, 8).map(c => `
+            <div class="flex-none w-24 text-center">
+              ${c.profile_path ? `<img src="https://image.tmdb.org/t/p/w185${c.profile_path}" class="w-24 h-24 rounded-full object-cover mb-2 border border-white/10">` : `<div class="w-24 h-24 rounded-full bg-white/10 mb-2"></div>`}
+              <p class="text-xs font-medium truncate">${c.name}</p>
+              <p class="text-[10px] text-gray-500 truncate">${c.character}</p>
+            </div>
+          `).join('')}
+        </div>
+        ` : ''}
+      </div>
+
+      <!-- Fixed Bottom Action Bar -->
+      <div class="fixed bottom-0 left-0 w-full glass p-4 z-50 flex space-x-3">
+        ${trailer ? `
+          <a href="https://www.youtube.com/watch?v=${trailer.key}" target="_blank" class="flex-1 bg-[#39FF14] text-black text-center py-4 rounded-xl font-bold text-sm">
+            ▶️ Watch Trailer
+          </a>
+        ` : ''}
+        <button onclick="alert('Saved to Motif DNA!')" class="w-14 bg-white/10 flex items-center justify-center rounded-xl border border-white/10">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+        </button>
+      </div>
+    </body>
+    </html>
+    `;
+    res.send(html);
+  } catch (e) {
+    res.send("Error generating widget");
+  }
+});
 
 // --- AUTH ENDPOINTS ---
 app.get(['/.well-known/oauth-protected-resource/sse', '/.well-known/oauth-protected-resource'], (req, res) => {
